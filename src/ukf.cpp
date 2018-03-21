@@ -13,7 +13,7 @@ UKF::UKF() {
 
   is_initialized = false;
 
-  use_laser_ = true;
+  use_laser_ = false;
 
   use_radar_ = true;
 
@@ -54,6 +54,8 @@ UKF::~UKF() {}
 
 void UKF::ProcessMeasurement(MeasurementPackage meas_package) 
 {
+  cout << "PROCESS MEASUREMENT" << endl;
+
   if(!is_initialized)
   {
 
@@ -82,6 +84,8 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package)
             0, 0, 0, 0, 1;
       previous_timestamp_ = meas_package.timestamp_; 
     }
+
+    is_initialized = true;
   }
 
   else
@@ -111,29 +115,32 @@ void UKF::Prediction(double delta_t) {
   STEP 1: GENERATE SIGMA POINTS
   **/
 
+  cout << "IN PREDICT" << endl;
+
   VectorXd x_aug_(n_aug_);
   x_aug_.head(5) = x_;
   x_aug_(5) = 0;
   x_aug_(6) = 0;
-
+  // cout << "OKAY" << endl;
   MatrixXd P_aug_(n_aug_, n_aug_);
   P_aug_.fill(0.0);
   P_aug_.topLeftCorner(n_x_, n_x_) = P_;
   P_aug_(5,5) = std_a_ * std_a_;
   P_aug_(6,6) = std_yawdd_ * std_yawdd_;
   int lambda_aug = 3 - n_aug_;
-
+  // cout << "OKAY" << endl;
   double multiplier = sqrt(lambda_aug + n_aug_);
   MatrixXd Xsig_aug(n_aug_, 2 * n_aug_ + 1);
   MatrixXd root(n_aug_, n_aug_);
   root = P_aug_.llt().matrixL();
-
+  // cout << "OKAY" << endl;
   Xsig_aug.col(0) = x_aug_;
 
-  for(int i = 1; i < (n_aug_ + 1); i++)
+  for(int i = 0; i < n_aug_; i++)
   {
-    Xsig_aug.col(i) = x_aug_ + multiplier * root.col(i - 1);
-    Xsig_aug.col(n_x_ + 1) = x_aug_ - multiplier * root.col(i - 1);
+    Xsig_aug.col(i + 1) = x_aug_ + multiplier * root.col(i);
+    Xsig_aug.col(i + n_aug_ + 1) = x_aug_ - multiplier * root.col(i);
+    // cout << "OKAY" << endl;
   }
 
   /**
@@ -142,11 +149,18 @@ void UKF::Prediction(double delta_t) {
 
   int cols = 2 * n_aug_ + 1;
   
+  MatrixXd x_k(n_x_, cols);
   MatrixXd x_change(n_x_, cols);
   MatrixXd noise(n_x_, cols);
+  // cout << "OKAY" << endl;
+
+  for(int i = 0; i < n_x_; i++)
+    for(int j = 0; j < cols; j++)
+      x_k(i, j) = Xsig_aug(i, j);
 
   for(int i = 0; i < cols; i++)
   {
+    // cout << "OKAY" << endl;
 
     double px = Xsig_aug(0,i);
     double py = Xsig_aug(1,i);
@@ -163,7 +177,6 @@ void UKF::Prediction(double delta_t) {
       x_change(2,i) = 0;
       x_change(3,i) = psi_dot * delta_t;
       x_change(4,i) = 0;
-            
     }
 
     else
@@ -183,13 +196,15 @@ void UKF::Prediction(double delta_t) {
     noise(4,i) = delta_t * noise_rad;
 
     }
-    
-  Xsig_pred = x_ + x_change + noise;
+  
+  // cout << "OKAY PREV" << endl;
+  Xsig_pred = x_k + x_change + noise;
 
   /**
   STEP 3: PREDICT MEAN AND COVARIANCE
   **/
 
+  // cout << "OKAY" << endl;
   for(int i = 0; i < n_x_; i++)
   {
     x_ += weights_(i) * Xsig_pred.col(i);
@@ -207,6 +222,8 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
   /**
   STEP 1: PREDICT MEASUREMENT
   **/
+
+  std::cout << "IN LIDAR" << endl;
 
   int z_dim = 2;
 
@@ -259,8 +276,13 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
 
   VectorXd z_diff = z - z_pred;
 
+  MatrixXd NIS = (z_diff.transpose()) * S_laser.inverse() * z_diff;
   x_ += K*z_diff;
   P_ -= K*S_laser*K.transpose();
+
+  cout << "NIS: " << endl;
+  cout << NIS;
+  cout << endl << endl;
 
 }
 
@@ -268,6 +290,9 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   /**
   STEP 1: PREDICT MEASUREMENT
    **/
+
+  std::cout << "IN RADAR" << endl;
+
   int z_dim = 3;
 
   MatrixXd Zsig(z_dim, 2 * n_aug_ + 1);
@@ -329,7 +354,12 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   VectorXd z_diff = z - z_pred;
   z_diff(1) = angle_norm(z_diff(1));
 
+  MatrixXd NIS = (z_diff.transpose()) * S_radar.inverse() * z_diff;
+
   x_ += K*z_diff;
   P_ -= K*S_radar*K.transpose();
 
+  cout << "NIS: " << endl;
+  cout << NIS;
+  cout << endl << endl;
 }
