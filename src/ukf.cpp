@@ -13,9 +13,9 @@ UKF::UKF() {
 
   is_initialized = false;
 
-  use_laser_ = false;
+  use_laser_ = true;
 
-  use_radar_ = true;
+  use_radar_ = false;
 
   n_x_ = 5;
   n_aug_ = 7;
@@ -32,6 +32,7 @@ UKF::UKF() {
         0, 0, 0 ,0, 1;
 
   Xsig_pred = MatrixXd(n_x_, 2 * n_aug_ + 1);
+  Xsig_pred.fill(0.0);
   std_a_ = 1;
   std_yawdd_ = 1;
   std_laspx_ = 0.15;
@@ -94,12 +95,19 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package)
     previous_timestamp_ = meas_package.timestamp_;
 
     Prediction(del_t);
+    cout << "OKAY4" << endl;
 
     if(meas_package.sensor_type_ == MeasurementPackage::RADAR && use_radar_)
       UpdateRadar(meas_package);
 
+    else if(meas_package.sensor_type_ == MeasurementPackage::RADAR && !use_radar_)
+      cout << "WE HAVE RADAR" << endl;
+
     else if(meas_package.sensor_type_ == MeasurementPackage::LASER && use_laser_)
+    {
+      cout << "OKAY5" << endl;
       UpdateLidar(meas_package);
+    }
   }
 }
 
@@ -127,12 +135,11 @@ void UKF::Prediction(double delta_t) {
   P_aug_.topLeftCorner(n_x_, n_x_) = P_;
   P_aug_(5,5) = std_a_ * std_a_;
   P_aug_(6,6) = std_yawdd_ * std_yawdd_;
-  int lambda_aug = 3 - n_aug_;
+  double lambda_aug = 3 - n_aug_;
   // cout << "OKAY" << endl;
   double multiplier = sqrt(lambda_aug + n_aug_);
   MatrixXd Xsig_aug(n_aug_, 2 * n_aug_ + 1);
-  MatrixXd root(n_aug_, n_aug_);
-  root = P_aug_.llt().matrixL();
+  MatrixXd root = P_aug_.llt().matrixL();
   // cout << "OKAY" << endl;
   Xsig_aug.col(0) = x_aug_;
 
@@ -142,6 +149,7 @@ void UKF::Prediction(double delta_t) {
     Xsig_aug.col(i + n_aug_ + 1) = x_aug_ - multiplier * root.col(i);
     // cout << "OKAY" << endl;
   }
+  cout << "OKAY1" << endl;
 
   /**
   STEP 2: PREDICT SIGMA POINTS
@@ -199,23 +207,24 @@ void UKF::Prediction(double delta_t) {
   
   // cout << "OKAY PREV" << endl;
   Xsig_pred = x_k + x_change + noise;
-
+  cout << "OKAY2" << endl;  
   /**
   STEP 3: PREDICT MEAN AND COVARIANCE
   **/
 
   // cout << "OKAY" << endl;
-  for(int i = 0; i < n_x_; i++)
+  for(int i = 0; i < cols; i++)
   {
     x_ += weights_(i) * Xsig_pred.col(i);
     x_(3) = angle_norm(x_(3));
   }
 
-  for(int i = 0; i < n_x_; i++)
+  for(int i = 0; i < cols; i++)
   {
     VectorXd x_diff = Xsig_pred.col(i) - x_;
     P_ += weights_(i) * (x_diff) * (x_diff.transpose()); 
   }
+  cout << "OKAY3" << endl;
 
 }
 void UKF::UpdateLidar(MeasurementPackage meas_package) {
