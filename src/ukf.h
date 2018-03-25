@@ -49,6 +49,9 @@ public:
 
   double lambda;
 
+  MatrixXd R_radar_;
+  MatrixXd R_lidar_;
+
 
   UKF();
 
@@ -78,6 +81,10 @@ public:
    * @param meas_package The measurement at k+1
    */
   void UpdateRadar(MeasurementPackage meas_package);
+
+  MatrixXd GenerateSigmaPoints(VectorXd x, MatrixXd P, int lambda, int cols);
+
+  MatrixXd PredictSigmaPoints(MatrixXd Xsig, double delta_t, int n_x, int cols, double nu_am, double nu_yawdd);
 };
 
 #endif /* UKF_H */
