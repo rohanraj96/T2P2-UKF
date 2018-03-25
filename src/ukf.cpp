@@ -15,7 +15,7 @@ UKF::UKF() {
 
   use_laser_ = true;
 
-  use_radar_ = false;
+  use_radar_ = true;
 
   n_x_ = 5;
   n_aug_ = 7;
